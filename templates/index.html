@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Prediction</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #3b5998;
+            --secondary-color: #1877f2;
+            --accent-color: #4267B2;
+            --light-bg: #f8f9fa;
+            --dark-text: #343a40;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .main-title {
+            color: var(--primary-color);
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .card-title {
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+        
+        .btn-predict {
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            border: none;
+            box-shadow: 0 4px 15px rgba(59, 89, 152, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-predict:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 89, 152, 0.6);
+        }
+        
+        .form-control, .form-select {
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid #ced4da;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 0.25rem rgba(66, 103, 178, 0.25);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .metrics-img {
+            border-radius: 8px;
+          
+        
+            transition: all 0.3s ease;
+            width: 100%; /* Make images take full width */
+            height: auto; /* Maintain aspect ratio */
+        }
+        
+        .metrics-img:hover {
+            transform: scale(1.03);
+        }
+        
+        .badge-model {
+            background-color: var(--accent-color);
+            padding: 8px 15px;
+            font-size: 14px;
+            border-radius: 20px;
+        }
+        
+        .stock-info {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px;
+        }
+        
+        /* Loading animation */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            border-radius: 8px;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="text-center mb-5">
+            <h1 class="display-4 main-title mb-3"><i class="fas fa-chart-line me-2"></i>Stock Price Prediction Dashboard</h1>
+            <p class="lead text-muted">Predict future stock prices with advanced machine learning models</p>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-body p-4">
+                <div class="row">
+                    <div class="col-md-5">
+                        <div class="mb-3">
+                            <label for="symbol-select" class="form-label fw-bold"><i class="fas fa-tag me-2"></i>Select Stock Symbol</label>
+                            <select id="symbol-select" class="form-select">
+                                <option value="">Loading symbols...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="mb-3">
+                            <label for="year-input" class="form-label fw-bold"><i class="far fa-calendar-alt me-2"></i>Prediction Year</label>
+                            <input type="number" id="year-input" min="2000" max="2030" value="2025" class="form-control">
+                        </div>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button id="predict-btn" class="btn btn-primary btn-predict w-100 py-3">
+                            <i class="fas fa-magic me-2"></i>Predict
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="prediction-results" class="d-none">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body p-4">
+                            <h2 class="card-title text-center mb-4" id="prediction-title">Prediction Results</h2>
+                            
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="stock-info mb-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="fw-bold">Model Used:</span>
+                                            <span class="badge badge-model"><i class="fas fa-robot me-1"></i><span id="model-used"></span></span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold">R² Score:</span>
+                                            <span class="fw-bold text-primary" id="r2-score"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div id="prediction-stats" class="stock-info">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="fw-bold">Predicted Trend:</span>
+                                            <span class="badge bg-success"><i class="fas fa-arrow-up me-1"></i>Upward</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold">Confidence Level:</span>
+                                            <span class="fw-bold text-success">92%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="chart-container">
+                                <div id="prediction-loading" class="loading-overlay d-none">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                                <canvas id="prediction-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body p-4">
+                            <h2 class="card-title text-center mb-4">Historical Price Trends</h2>
+                            <div class="chart-container">
+                                <div id="historical-loading" class="loading-overlay d-none">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                                <canvas id="historical-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Add this after the prediction chart container in the prediction results section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body p-4">
+                <h3 class="card-title text-center mb-4">Price Movement Analysis</h3>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover" id="price-movement-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Price</th>
+                                <th>Previous Price</th>
+                                <th>Change</th>
+                                <th>Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Table content will be populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+        <div class="card mb-4">
+            <div class="card-body p-4">
+                <h2 class="card-title text-center mb-4">Model Performance Metrics</h2>
+                <div class="row">
+                    <div class="col-12 mb-4">
+                        <div class="position-relative">
+                            <img src="C:\\Users\\Saitejaswini\\OneDrive\\Desktop\\stock_prediction\\static\\metrics_comparison.png" alt="Metrics Comparison" class="img-fluid w-100">
+                            <div class="position-absolute bottom-0 start-0 p-3 bg-white bg-opacity-75 rounded-end">
+                                <h5 class="mb-0 text-primary">Model Accuracy Comparison</h5>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="position-relative">
+                            <img src="C:\\Users\\Saitejaswini\\OneDrive\\Desktop\\stock_prediction\\static\\confusion_matrices.png" alt="Confusion Matrices" class="img-fluid w-100">
+                            <div class="position-absolute bottom-0 start-0 p-3 bg-white bg-opacity-75 rounded-end">
+                                <h5 class="mb-0 text-primary">Confusion Matrices</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Load available symbols when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('http://127.0.0.1:5000/api/symbols')
+                .then(response => response.json())
+                .then(symbols => {
+                    const selectElement = document.getElementById('symbol-select');
+                    selectElement.innerHTML = '';
+                    
+                    symbols.forEach(symbol => {
+                        const option = document.createElement('option');
+                        option.value = symbol;
+                        option.textContent = symbol;
+                        selectElement.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading symbols:', error);
+                    alert('Error loading symbols. Please make sure the server is running and models are trained.');
+                });
+        });
+        
+        // Prediction chart
+        let predictionChart = null;
+        let historicalChart = null;
+        
+        // Handle predict button click
+        document.getElementById('predict-btn').addEventListener('click', function() {
+            const symbol = document.getElementById('symbol-select').value;
+            const year = document.getElementById('year-input').value;
+            
+            if (!symbol) {
+                alert('Please select a stock symbol.');
+                return;
+            }
+            
+            if (!year || year < 2000 || year > 2030) {
+                alert('Please enter a valid year between 2000 and 2030.');
+                return;
+            }
+            
+            // Show loading state
+            document.getElementById('predict-btn').innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+            document.getElementById('predict-btn').disabled = true;
+            document.getElementById('prediction-results').classList.remove('d-none');
+            document.getElementById('prediction-loading').classList.remove('d-none');
+            document.getElementById('historical-loading').classList.remove('d-none');
+            
+            // Fetch prediction data
+            fetch(`http://127.0.0.1:5000/api/predict?symbol=${symbol}&year=${year}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(`Error: ${data.error}`);
+                        return;
+                    }
+                    
+                    // Update prediction info
+                    document.getElementById('prediction-title').textContent = `${data.symbol} Price Prediction for ${data.year}`;
+                    document.getElementById('model-used').textContent = data.model_used;
+                    document.getElementById('r2-score').textContent = data.r2_score.toFixed(4);
+                    
+                    // Show results section
+                    document.getElementById('prediction-results').classList.remove('d-none');
+                    
+                    // Draw prediction chart with animation
+                    setTimeout(() => {
+                        document.getElementById('prediction-loading').classList.add('d-none');
+                        drawPredictionChart(data);
+                    }, 1000);
+                    
+                    // Draw historical chart with animation
+                    setTimeout(() => {
+                        document.getElementById('historical-loading').classList.add('d-none');
+                        drawHistoricalChart(data);
+                        populatePriceMovementTable(data);
+                    }, 1500);
+                })
+                .catch(error => {
+                    console.error('Error fetching prediction:', error);
+                    alert('Error fetching prediction. Please try again.');
+                })
+                .finally(() => {
+                    // Reset button state
+                    document.getElementById('predict-btn').innerHTML = '<i class="fas fa-magic me-2"></i>Predict';
+                    document.getElementById('predict-btn').disabled = false;
+                });
+        });
+        
+        // Function to draw prediction chart with animation
+        function drawPredictionChart(data) {
+            const ctx = document.getElementById('prediction-chart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (predictionChart) {
+                predictionChart.destroy();
+            }
+            
+            // Create new chart with animations
+            predictionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dates,
+                    datasets: [{
+                        label: `${data.symbol} Predicted Price (${data.year})`,
+                        data: Array(data.predicted_prices.length).fill(null),
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                        pointBackgroundColor: 'rgb(75, 192, 192)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    animation: {
+                        duration: 2000
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: `Predicted ${data.symbol} Prices for ${data.year}`,
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            padding: {
+                                top: 10,
+                                bottom: 20
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('en-US', { 
+                                            style: 'currency', 
+                                            currency: 'USD' 
+                                        }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            },
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 14
+                            },
+                            padding: 12,
+                            cornerRadius: 8
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                maxTicksLimit: 12,
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Stock Price',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: false,
+                            ticks: {
+                                font: {
+                                    size: 12
+                                },
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Animate data points one by one (time-lapse effect)
+            let currentIndex = 0;
+            const animateInterval = setInterval(() => {
+                if (currentIndex >= data.predicted_prices.length) {
+                    clearInterval(animateInterval);
+                    return;
+                }
+                
+                predictionChart.data.datasets[0].data[currentIndex] = data.predicted_prices[currentIndex];
+                predictionChart.update('none');
+                currentIndex++;
+                
+                // Once done, update the chart with full animation for a final effect
+                if (currentIndex >= data.predicted_prices.length) {
+                    predictionChart.data.datasets[0].data = [...data.predicted_prices];
+                    predictionChart.update();
+                }
+            }, 100);
+        }
+        populatePriceMovementTable(data);
+        function populatePriceMovementTable(data) {
+    const tableBody = document.querySelector('#price-movement-table tbody');
+    tableBody.innerHTML = '';
+    
+    // Skip the first entry since we need previous price for comparison
+    for (let i = 1; i < data.predicted_prices.length; i++) {
+        const currentPrice = data.predicted_prices[i];
+        const previousPrice = data.predicted_prices[i-1];
+        const priceChange = currentPrice - previousPrice;
+        const percentChange = ((priceChange / previousPrice) * 100).toFixed(2);
+        const isUp = priceChange >= 0;
+        
+        const row = document.createElement('tr');
+        
+        // Apply row background color based on trend
+        if (isUp) {
+            row.classList.add('table-success', 'bg-opacity-25');
+        } else {
+            row.classList.add('table-danger', 'bg-opacity-25');
+        }
+        
+        row.innerHTML = `
+            <td>${data.dates[i]}</td>
+            <td>$${currentPrice.toFixed(2)}</td>
+            <td>$${previousPrice.toFixed(2)}</td>
+            <td class="${isUp ? 'text-success' : 'text-danger'} fw-bold">
+                ${isUp ? '+' : ''}$${priceChange.toFixed(2)} (${isUp ? '+' : ''}${percentChange}%)
+            </td>
+            <td>
+                <span class="badge ${isUp ? 'bg-success' : 'bg-danger'}">
+                    <i class="fas fa-arrow-${isUp ? 'up' : 'down'} me-1"></i>
+                    ${isUp ? 'UP' : 'DOWN'}
+                </span>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+    }
+    
+    // Add summary row
+    const totalUp = data.predicted_prices.slice(1).filter((price, index) => 
+        price >= data.predicted_prices[index]
+    ).length;
+    
+    const totalDays = data.predicted_prices.length - 1;
+    const upPercentage = ((totalUp / totalDays) * 100).toFixed(0);
+    
+    const summaryRow = document.createElement('tr');
+    summaryRow.classList.add('table-primary', 'fw-bold');
+    summaryRow.innerHTML = `
+        <td colspan="4" class="text-end">Overall Trend Analysis:</td>
+        <td>
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: ${upPercentage}%;" 
+                             aria-valuenow="${upPercentage}" aria-valuemin="0" aria-valuemax="100">
+                            ${upPercentage}% UP
+                        </div>
+                        <div class="progress-bar bg-danger" role="progressbar" 
+                             style="width: ${100 - upPercentage}%;" 
+                             aria-valuenow="${100 - upPercentage}" aria-valuemin="0" aria-valuemax="100">
+                            ${100 - upPercentage}% DOWN
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </td>
+    `;
+    
+    tableBody.appendChild(summaryRow);
+}
+        // Function to draw historical chart with animation
+        function drawHistoricalChart(data) {
+            const ctx = document.getElementById('historical-chart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (historicalChart) {
+                historicalChart.destroy();
+            }
+            
+            // Create datasets for historical data with initial empty data
+            const datasets = data.historical_data.map((yearData, index) => {
+                const colors = [
+                    'rgb(255, 99, 132)',
+                    'rgb(54, 162, 235)',
+                    'rgb(255, 206, 86)'
+                ];
+                
+                return {
+                    label: `${data.symbol} Prices (${yearData.year})`,
+                    data: Array(yearData.prices.length).fill(null),
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    tension: 0.3,
+                    pointBackgroundColor: colors[index % colors.length],
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                };
+            });
+            
+            // Create new chart
+            historicalChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.historical_data[0].dates,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    animation: {
+                        duration: 2000
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: `${data.symbol} Historical Price Trends`,
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            padding: {
+                                top: 10,
+                                bottom: 20
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('en-US', { 
+                                            style: 'currency', 
+                                            currency: 'USD' 
+                                        }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            },
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 14
+                            },
+                            padding: 12,
+                            cornerRadius: 8
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                maxTicksLimit: 12,
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Stock Price',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: false,
+                            ticks: {
+                                font: {
+                                    size: 12
+                                },
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Animate each dataset sequentially
+            let currentDataset = 0;
+            
+            function animateDataset() {
+                if (currentDataset >= datasets.length) {
+                    return;
+                }
+                
+                const yearData = data.historical_data[currentDataset];
+                let currentIndex = 0;
+                
+                const pointInterval = setInterval(() => {
+                    if (currentIndex >= yearData.prices.length) {
+                        clearInterval(pointInterval);
+                        currentDataset++;
+                        setTimeout(animateDataset, 500); // Start next dataset after delay
+                        return;
+                    }
+                    
+                    historicalChart.data.datasets[currentDataset].data[currentIndex] = yearData.prices[currentIndex];
+                    historicalChart.update('none');
+                    currentIndex++;
+                    
+                    // Once done with this dataset, update with full animation
+                    if (currentIndex >= yearData.prices.length) {
+                        historicalChart.data.datasets[currentDataset].data = [...yearData.prices];
+                        historicalChart.update();
+                    }
+                }, 50);
+            }
+            
+            // Start animation sequence
+            setTimeout(animateDataset, 500);
+        }
+    </script>
+</body>
+</html>
